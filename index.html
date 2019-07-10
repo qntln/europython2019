@@ -1,0 +1,653 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>Static typing: beyond the basics</title>
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/quantlane.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section data-background-image="img/wallpaper.svg">
+				</section>
+
+				<section class="intro-slide">
+					<img class="logo" src="img/logo-positive.svg" alt="Quantlane">
+					<h1>Static typing: beyond the basics of <code>def foo(x: int) -> str:</code></h1>
+					<h2>Vita Smid <span class="divider">|</span> EuroPython 2019</h2>
+					<h3><span>July 10, 2019</span></h3>
+
+					<aside class="notes">
+						How many of you are using mypy on your code already?
+					</aside>
+				</section>
+
+				<section>
+					<h2 style="font-weight: normal" class="logo-heading fragment">
+						<img src="img/vita.jpg" alt="Vita" style="border-radius: 50%; width: 13%; vertical-align: middle; margin-right: 0.4em">
+						Vita
+					</h2>
+					<h2 style="font-weight: normal; margin-left: 10%" class="logo-heading fragment">
+						<img src="img/logo-positive-horizontal.svg" alt="Quantlane">
+					</h2>
+					<h2 style="font-weight: normal" class="logo-heading fragment">
+							<img src="img/prague.jpg" alt="Prague"
+							style="border-radius: 50%; width: 13%; vertical-align: middle; margin: 0 0.4em 0 20%"> Prague</h2>
+					<h2 style="font-weight: normal" class="logo-heading fragment"><img src="img/python.png" alt="Python"
+							style="width: 40%; margin-left: 30%; vertical-align: middle"></h2>
+				</section>
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section>
+					<p>Static typing is still quite new in Python.</p>
+					<p class="fragment">Static typing is sometimes difficult.</p>
+					<p class="fragment">Static typing helps prevent errors early.</p>
+				</section>
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section>
+					<div class="fragment">
+						<h2>1. Strategy</h2>
+						<p>How to approach a large codebase</p>
+						<br>
+					</div>
+
+					<div class="fragment">
+						<h2>2. Tactics</h2>
+						<p>Dealing with complex code</p>
+					</div>
+				</section>
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+<!-- -----------------------------------       1. Strategy       --------------------------------------------------------------- -->
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section data-background-color="#000000">
+					<h1>How to approach a large codebase</h1>
+					<aside class="notes">
+						We were adding type annotations early - long before mypy stopped crashing on our 100s of ks of lines of code
+					</aside>
+				</section>
+
+
+				<section>
+					<h2>Try to start with strict configuration</h2>
+					<ol>
+						<li class="fragment">
+							Ensure full coverage
+							<pre class="mypyini" style="margin-top: 4px"><code class="python" data-trim data-noescape>
+disallow_untyped_calls = True
+disallow_untyped_defs = True
+disallow_incomplete_defs = True
+disallow_untyped_decorators = True
+						</code></pre>
+						</li>
+
+						<li class="fragment">
+							Restrict dynamic typing (a little)
+							<pre class="mypyini" style="margin-top: 4px"><code class="python" data-trim data-noescape>
+disallow_any_generics = True      # e.g. `x: List[Any]` or `x: List`
+disallow_subclassing_any = True
+warn_return_any = True            # From functions not declared
+                                  # to return Any.
+							</code></pre>
+						</li>
+
+						<li class="fragment">
+							Know exactly what you're doing
+							<pre class="mypyini" style="margin-top: 4px"><code class="python" data-trim data-noescape>
+warn_redundant_casts = True
+warn_unused_ignores = True
+warn_unused_configs = True
+							</code></pre>
+						</li>
+					</ol>
+					<aside class="notes" data-markdown>
+						- Try to apply the following to whatever code you run mypy on
+						- Starting with too permissive mode leads to bad habits
+					</aside>
+				</section>
+
+
+				<section>
+					<h2>Gradual coverage</h2>
+					Begin with <em>opt-in</em>: only explicitly listed modules are checked.
+					<pre><code class="bash" data-trim>
+$ mypy models/ lib/cache/ dev/tools/manage.py
+					</code></pre>
+					<br>
+					<p class="fragment">Add this command to your CI pipeline and gradually grow that list.</p>
+					<p class="fragment">Tip: try an internal hackathon.</p>
+				</section>
+
+				<section>
+					<h2>Opt-in and imports</h2>
+					<pre class="mypyini"><code class="python" data-trim data-noescape>
+ignore_missing_imports = True
+follow_imports = silent
+					</code></pre>
+					<div class="fragment">
+						We used <code>follow_imports = skip</code> before. Terrible idea.
+					</div>
+				</section>
+
+				<section>
+					<h2>Getting to opt-out</h2>
+					<pre><code class="bash" data-trim data-noescape>
+$ mypy
+					</code></pre>
+					<div class="fragment">
+						<pre class="mypyini"><code class="python" data-trim data-noescape>
+[mypy-lib.math.*]
+ignore_errors = True
+[mypy-controllers.utils]
+ignore_errors = True
+...
+						</code></pre>
+					</div>
+					<div class="fragment">
+						Now you work to gradually reduce that list.
+					</div>
+				</section>
+
+
+				<section>
+					<h2>Tests</h2>
+
+					<ol>
+						<li class="fragment">
+							Cut yourself some slack
+							<pre class="mypyini"><code class="python" data-trim data-noescape>
+[mypy-*.tests.*]
+disallow_untyped_decorators = True # pytest decorators are untyped.
+disallow_untyped_defs = False      # Properly typing *all* fixtures
+disallow_incomplete_defs = False   # and tests is hard and noisy.
+							</code></pre>
+						</li>
+
+						<li class="fragment">
+							<code class="python hljs-comment inline-code"># type: ignore</code> your way around mocks and monkey patching
+							<ul style="list-style: none; font-size: 80%; padding: 0; margin: 0 0 20px;">
+								<li><a href="https://github.com/python/mypy/issues/2427">mypy#2427 Unable to assign a function to a method</a></li>
+								<li><a href="https://github.com/python/mypy/issues/1188">mypy#1188 Need a way to specify types for mock objects</a></li>
+								<li><a href="https://github.com/python/mypy/issues/6713">mypy#6713 Mypy throws errors when mocking a method</a></li>
+							</ul>
+						</li>
+
+						<li class="fragment">
+							Don't give up on test code completely.
+						</li>
+					</ol>
+				</section>
+
+
+				<section>
+					<h2>Your own packages</h2>
+					<p>Inline type annotations in packages are <em>not checked</em> by default.</p>
+					<div class="fragment">
+						You need to add a <code>py.typed</code> marker file (<a href="https://www.python.org/dev/peps/pep-0561/">PEP 561</a>):
+						<pre><code class="bash" data-trim data-noescape>
+$ touch your_package/py.typed
+						</code></pre>
+						<pre><code class="python" data-trim data-noescape>
+setup(
+  ...,
+  package_data = {
+    'your_package': ['py.typed'],
+  },
+  ...,
+)
+						</code></pre>
+					<div>
+				</section>
+
+
+				<section>
+					<h2>Third-party packages</h2>
+
+					<ul>
+					<li class="fragment">
+						You might have to write stubs for third-party packages
+					</li>
+					<li class="fragment">
+						You might want to ignore them completely
+						<pre class="mypyini"><code class="python" data-trim data-noescape>
+ignore_missing_imports = True
+follow_imports = silent
+						</code></pre>
+					</li>
+					<li class="fragment">
+						You might want to ignore just some of them
+						<pre class="mypyini"><code class="python" data-trim data-noescape>
+[mypy-<mark>package.to.ignore</mark>]
+ignore_missing_imports = True
+follow_imports = silent
+						</code></pre>
+					</li>
+					</ul>
+				</section>
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+<!-- -----------------------------------       2. Tactics        --------------------------------------------------------------- -->
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section data-background-color="#000000">
+					<h1>Dealing with complex code</h1>
+				</section>
+
+
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section>
+					<h2>Generics and type variables</h2>
+					<aside class="notes">
+						Frequently used tool
+					</aside>
+				</section>
+
+				<section>
+					$$
+					\text{WeightedAverage} =
+						\frac{
+							\text{value}_0 \cdot \text{weight}_0
+							+ \text{value}_1 \cdot \text{weight}_1
+							+ ...
+						}
+						{
+							\text{weight}_0
+							+ \text{weight}_1
+							+ ...
+						}
+					$$
+					<pre class="fragment" style="margin-bottom: 0"><code class="python" data-trim data-noescape>
+class WeightedAverage:
+  def __init__(self) -> None:
+    self._premultiplied_values = 0.0
+    self._total_weight = 0.0
+
+  def add(self, value: <mark>float</mark>, weight: <mark>float</mark>) -> None:
+    self._premultiplied_values += value * weight
+    self._total_weight += weight
+					</code></pre>
+					<pre class="fragment" style="margin-top: 0"><code class="python" data-noescape>
+  def get(self) -> <mark>float</mark>:
+    if not self._total_weight:
+      return 0.0
+    return self._premultiplied_values / self._total_weight</code></pre>
+					<aside class="notes" data-markdown>
+						Important: the average is updated **incrementally**
+					</aside>
+				</section>
+
+				<section>
+					This of course works&hellip;
+					<pre><code class="python" data-trim data-noescape>
+avg = WeightedAverage()
+avg.add(3.2, 1)
+avg.add(7.1, 0.1)
+reveal_type(avg.get()) # Revealed type is 'builtins.float'
+					</code></pre>
+					<div class="fragment">&hellip;and this, of course, does not:
+						<pre><code class="python" data-trim data-noescape>
+from decimal import Decimal
+avg = WeightedAverage()
+avg.add(Decimal('3.2'), Decimal(1))
+# error: Argument 1 to "add" of "WeightedAverage"
+#     has incompatible type "Decimal"; expected "float"
+# error: Argument 2 to "add" of "WeightedAverage"
+#     has incompatible type "Decimal"; expected "float"
+						</code></pre>
+					</div>
+					<aside class="notes">
+						Know about <code>reveal_type</code>?
+					</aside>
+				</section>
+
+				<section>
+					<h2>Type variables with restriction</h2>
+					<pre style="margin-bottom: 0"><code class="python" data-trim data-noescape>
+from typing import cast, Generic, TypeVar
+from decimal import Decimal
+
+AlgebraType = TypeVar('AlgebraType', <mark>float, Decimal</mark>)
+
+class WeightedAverage(Generic[AlgebraType]):
+					</code></pre>
+					<pre style="margin: 0" class="fragment"><code class="python" data-noescape>  _ZERO = <mark>cast(AlgebraType, 0)</mark>
+
+  def __init__(self) -> None:
+    self._premultiplied_values: AlgebraType = <mark>self._ZERO</mark>
+    self._total_weight: AlgebraType = <mark>self._ZERO</mark></code></pre>
+					<pre style="margin: 0" class="fragment"><code class="python" data-noescape>
+  def add(self, value: <mark>AlgebraType</mark>, weight: <mark>AlgebraType</mark>) -> None:
+    self._premultiplied_values += value * weight
+    self._total_weight += weight
+
+  def get(self) -> <mark>AlgebraType</mark>:
+    if not self._total_weight:
+      return <mark>self._ZERO</mark>
+    return self._premultiplied_values / self._total_weight</code></pre>
+					<aside class="notes" data-markdown>
+						One lie: an empty `WA[Decimal]` returns `int(0)`, not `Decimal(0)`
+					</aside>
+				</section>
+
+				<section>
+					<pre><code class="python" data-trim data-noescape>
+avg1 = WeightedAverage[<mark>float</mark>]()
+avg1.add(3.2, 1)
+avg1.add(7.1, 0.1)
+reveal_type(avg1.get()) # Revealed type is 'builtins.float*'
+
+avg2 = WeightedAverage[<mark>Decimal</mark>]()
+avg2.add(Decimal('3.2'), Decimal(1))
+avg2.add(Decimal('7.1'), Decimal('0.1'))
+reveal_type(avg2.get()) # Revealed type is 'decimal.Decimal*'
+					</code></pre>
+					<div class="fragment">Types cannot be mixed 👍
+						<pre><code class="python" data-trim data-noescape>
+avg3 = WeightedAverage[Decimal]()
+avg3.add(Decimal('3.2'), 1.1)
+# error: Argument 2 to "add" of "WeightedAverage"
+#     has incompatible type "float"; expected "Decimal"
+						</code></pre>
+					</div>
+				</section>
+
+				<section>
+					Using a <em>bounded</em> type variable would be even nicer&hellip;
+					<pre><code class="python" data-trim data-noescape>
+AlgebraType = TypeVar('AlgebraType', bound=numbers.Real)
+					</code></pre>
+					<div class="fragment">
+						<br>
+						<p>
+							Unfortunately, abstract number types do not play well with typing yet.
+						</p>
+						<p>
+							<small><a href="https://github.com/python/mypy/issues/3186">mypy#3186 int is not a Number?</a></small>
+						</p>
+					</div>
+					<aside class="notes" data-markdown>
+						- Think about the operations you need: addition, multiplication, division...
+						- Python typing is pragmatic => we have to be too
+						- Your type annotations won't be perfect
+					</aside>
+				</section>
+
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section>
+					<h2>Protocols:<br>
+					nominal typing vs. <em>structural</em> typing</h2>
+				</section>
+
+				<section>
+					<h3>Nominal typing: class inheritance as usual</h3>
+					<pre><code class="python" data-trim data-noescape>
+class Animal:
+  pass
+
+class Duck(Animal):
+  def quack(self) -> None:
+    print('Quack!')
+					</code></pre>
+					<pre class="fragment"><code class="python" data-trim data-noescape>
+def make_it_quack(animal: Duck) -> None:
+  animal.quack()
+
+make_it_quack(Duck()) # ✔︎
+					</code></pre>
+					<pre class="fragment"><code class="python" data-trim data-noescape>
+class Penguin(Animal):
+  def quack(self) -> None:
+    print('...quork?')
+
+make_it_quack(Penguin()) # error: Argument 1 to "make_it_quack" has
+                         # incompatible type "Penguin"; expected "Duck"
+					</code></pre>
+
+				</section>
+
+				<section>
+					<h3>Structural typing: describe capabilities, not ancestry</h3>
+					<pre><code class="python" data-trim data-noescape>
+from typing_extensions import Protocol
+
+class CanQuack(Protocol):
+  def quack(self) -> None:
+    ...
+					</code></pre>
+					<div class="fragment">
+						<pre><code class="python" data-trim data-noescape>
+def make_it_quack(animal: <mark>CanQuack</mark>) -> None:
+  animal.quack()
+						</code></pre>
+					</div>
+					<div class="fragment">
+						<pre><code class="python" data-trim data-noescape>
+make_it_quack(Duck()) # ︎︎︎︎✔︎
+make_it_quack(Penguin()) # ︎︎︎︎✔︎
+						</code></pre>
+						Note that we didn't even have to inherit from <code>CanQuack</code>!
+					</div>
+				</section>
+
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section>
+					<h2>Defining your own types</h2>
+				</section>
+
+				<section>
+					<h3>The case for custom types</h3>
+					<div>
+						<pre><code class="python" data-trim data-noescape>
+def place_order(price: Decimal, quantity: Decimal) -> None:
+  ...
+						</code></pre>
+					</div>
+					<div class="fragment">
+						If we could differentiate between a 'price decimal' and 'quantity decimal'&hellip;
+						<pre><code class="python" data-trim data-noescape>
+def place_order(price: Price, quantity: Quantity) -> None:
+  ...
+						</code></pre>
+					</div>
+					<div class="fragment">
+						<ol>
+							<li>More readable code</li>
+							<li>Hard to accidentally mix them up</li>
+						</ol>
+					</div>
+				</section>
+
+				<section>
+					<h3>Option 1: Type aliases</h3>
+					<pre><code class="python" data-trim data-noescape>
+from decimal import Decimal
+Price = Decimal
+p = Price('12.3')
+					</code></pre>
+					<div class="fragment">
+						<pre><code class="python" data-trim data-noescape>
+reveal_type(p) # Revealed type is 'decimal.Decimal'
+						</code></pre>
+						Aliases save typing and make for easier reading, but do not really create new types.
+					</div>
+				</section>
+
+				<section>
+					<h3>Option 2: <code>NewType</code></h3>
+					<pre><code class="python" data-trim data-noescape>
+from typing import NewType
+from decimal import Decimal
+
+Price = NewType('Price', Decimal)
+Quantity = NewType('Quantity', Decimal)
+					</code></pre>
+					<pre class="fragment"><code class="python" data-trim data-noescape>
+p = Price(Decimal('12.3'))
+reveal_type(p) # Revealed type is 'module.Price' 👍
+					</code></pre>
+					<div class="fragment">
+						<pre><code class="python" data-trim data-noescape>
+def f(price: Price) -> None: pass
+
+f(Decimal('12.3')) # Argument 1 to "f" has incompatible type "Decimal";
+                   # expected "Price" 👍
+f(Quantity(Decimal('12.3'))) # Argument 1 to "f" has incompatible
+                             # type "Quantity"; expected "Price" 👍
+					</code></pre>
+					</div>
+					<div class="fragment">
+						<code>NewType</code> works as long as you don't modify the values:
+						<pre><code class="python" data-trim data-noescape>
+reveal_type(p * 3) # Revealed type is 'decimal.Decimal'
+reveal_type(p + p) # Revealed type is 'decimal.Decimal'
+reveal_type(p / 1) # Revealed type is 'decimal.Decimal'
+reveal_type(p + Decimal('0.1')) # Revealed type is 'decimal.Decimal'
+						</code></pre>
+					</div>
+					<aside class="notes" data-markdown>
+						- The only fully correct solution is to actually define and implement your own type
+						- Then you pay the runtime price
+						- Typing brings interesting dilemmata to Python: dynamic / static tradeoffs
+					</aside>
+				</section>
+
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section>
+					<h2>Writing your own <code>mypy</code> plugins</h2>
+				</section>
+
+				<section>
+					<h2>Here be dragons</h2>
+					<p>Documentation and working examples are scarce</p>
+					<p class="fragment">
+						Check out our plugin: 170 lines of code and 350 lines of comments
+						<br>
+						<small>
+							<a href="https://github.com/qntln/fastenum/blob/master/fastenum/mypy_plugin.py">github.com/qntln/fastenum/blob/master/fastenum/mypy_plugin.py</a>
+						</small>
+					</p>
+				</section>
+
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section>
+					<h2>Overloading functions</h2>
+				</section>
+
+				<section>
+					<pre><code class="python" data-trim data-noescape>
+s = Series[int]([2, 6, 8, 1, -7])
+s[0] + 5 # ✔︎
+sum(s[2:4]) # ✔︎
+					</code></pre>
+					<pre class="fragment" style="margin-bottom: 0"><code class="python" data-trim data-noescape>
+from typing import Generic, overload, Sequence, TypeVar, Union
+
+ValueType = TypeVar('ValueType')
+class Series(Generic[ValueType]):
+  def __init__(self, data: Sequence[ValueType]):
+    self._data = data
+					</code></pre>
+					<pre class="fragment" style="margin: 0"><code class="python" data-noescape>
+  @overload
+  def __getitem__(self, index: int) -> ValueType:
+    ...
+
+  @overload
+  def __getitem__(self, index: slice) -> Sequence[ValueType]:
+    ...
+					</code></pre>
+					<pre class="fragment" style="margin-top: 0"><code class="python" data-noescape>  def __getitem__(
+    self,
+    index: Union[int, slice]
+  ) -> Union[ValueType, Sequence[ValueType]]:
+    return self._data[index]
+					</code></pre>
+				</section>
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+
+				<section data-background-color="#000000">
+					<ol>
+						<li class="fragment">Try to use strict(er) configuration</li>
+						<li class="fragment">Cover your code gradually</li>
+						<li class="fragment">Learn to work with generics</li>
+						<li class="fragment">Use protocols for duck typing</li>
+						<li class="fragment"><code>NewType</code> can add semantics</li>
+						<li class="fragment">Writing plugins will surely get easier over time</li>
+						<li class="fragment">Overloading is verbose but makes sense</li>
+					</ol>
+					<aside class="notes" data-markdown>
+						- Typing may seem difficult because:
+							- new concepts to understand (GREAT)
+							- tooling is young
+						- TypeScript - positive example
+						- Once we all learn to use it, our code will get much less error-prone
+						- Cherry on top: mypyc
+					</aside>
+				</section>
+
+<!-- --------------------------------------------------------------------------------------------------------------------------- -->
+				<section class="thankyou-slide" data-background-color="#000000">
+					<img class="logo" src="img/logo-negative.svg" alt="Quantlane">
+					<br>
+					<h1>Thank you</h1>
+					<h2>
+						<a href="mailto:vita@quantlane.com"><span class="email-name">vita@</span>quantlane.com</a>
+					</h2>
+					<h2>
+						<a href="https://twitter.com/quantlane" class="twitter-link">twitter.com/quantlane</a>
+					</h2>
+				</section>
+			</div>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				history: true,
+				controls: false,
+				progress: false,
+
+				math: {
+					mathjax: 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js',
+					config: 'TeX-AMS_HTML-full'  // See http://docs.mathjax.org/en/latest/config-files.html
+					// pass other options into `MathJax.Hub.Config()`
+					// TeX: { Macros: macros }
+				},
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/math/math.js', async: true }
+				]
+			});
+		</script>
+	</body>
+</html>
